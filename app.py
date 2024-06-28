@@ -84,6 +84,15 @@ def get_palm_response(text, prompt):
         return None
 
 # Streamlit UI
+st.markdown(
+            """
+            <style>
+            .stButton > button {
+                display: block;
+                margin: 0 auto;
+            }
+            </style>
+            """, unsafe_allow_html=True) 
 # Initialize session state for connection and tables
 # if "conn" not in st.session_state:
 #     st.session_state.conn = None
