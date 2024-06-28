@@ -182,4 +182,4 @@ if db_name:
                   except Exception as e:
                       st.error(f"Error executing query: {e}")
 
-          conn.close()
+          # conn.close()
