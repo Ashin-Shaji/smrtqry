@@ -184,13 +184,13 @@ def get_palm_response(text, prompt):
 #                 st.error(f"Error executing query: {e}")
 
 
+# Main function for the Streamlit app
 def main():
     st.markdown(f"<h2 style='color:indigo; text-align:center;'>{'SQLite Database Explorer and Data Entry'}</h2>", unsafe_allow_html=True)
 
-    # Initialize session state for connection and tables
-    if "conn" not in st.session_state:
-        st.session_state.conn = None
-
+    # Initialize session state for database name and tables
+    if "db_name" not in st.session_state:
+        st.session_state.db_name = ""
     if "tables" not in st.session_state:
         st.session_state.tables = []
 
@@ -200,19 +200,21 @@ def main():
 
     # Handle Database Connection
     if connect_button and db_name:
-        st.session_state.conn = create_conn(db_name)
-        if st.session_state.conn is None:
+        conn = create_conn(db_name)
+        if conn is None:
             st.warning("Database does not exist. Creating a new database.")
-            st.session_state.conn = create_new_db(db_name)
+            conn = create_new_db(db_name)
         else:
             st.success("Database exists and connected successfully.")
 
-        if st.session_state.conn:
-            c = st.session_state.conn.cursor()
+        if conn:
+            c = conn.cursor()
             c.execute("SELECT name FROM sqlite_master WHERE type='table';")
             st.session_state.tables = [table[0] for table in c.fetchall()]
+            st.session_state.db_name = db_name
+            conn.close()
 
-    if st.session_state.conn:
+    if st.session_state.db_name:
         with st.form("employee_form"):
             st.markdown(f"<h3 style='color:brown;'>{'Enter employee details:'}</h3>", unsafe_allow_html=True)
             tbl_name = st.text_input("Enter New Table Name (or leave blank to select existing)")
@@ -229,15 +231,18 @@ def main():
                 if not table_to_use:
                     st.error("Please provide a table name or select an existing table.")
                 else:
-                    if not check_table_exists(st.session_state.conn, table_to_use):
-                        create_tbl(table_to_use, st.session_state.conn)
-                        st.info(f"Table '{table_to_use}' did not exist and has been created.")
-                    create_employee(table_to_use, st.session_state.conn, name_val, pos_val, str(hire_val), deprt_val, sal_val)
-                    st.success("Employee data added successfully!")
-                    # Refresh the tables list
-                    c = st.session_state.conn.cursor()
-                    c.execute("SELECT name FROM sqlite_master WHERE type='table';")
-                    st.session_state.tables = [table[0] for table in c.fetchall()]
+                    conn = create_conn(st.session_state.db_name)
+                    if conn:
+                        if not check_table_exists(conn, table_to_use):
+                            create_tbl(table_to_use, conn)
+                            st.info(f"Table '{table_to_use}' did not exist and has been created.")
+                        create_employee(table_to_use, conn, name_val, pos_val, str(hire_val), deprt_val, sal_val)
+                        st.success("Employee data added successfully!")
+                        # Refresh the tables list
+                        c = conn.cursor()
+                        c.execute("SELECT name FROM sqlite_master WHERE type='table';")
+                        st.session_state.tables = [table[0] for table in c.fetchall()]
+                        conn.close()
 
         with st.expander("Show All Tables"):
             for table in st.session_state.tables:
@@ -247,44 +252,50 @@ def main():
 
         if table_name:
             with st.expander("Show Table Data"):
-                try:
-                    df = pd.read_sql_query(f"SELECT * FROM {table_name}", st.session_state.conn)
-                    st.dataframe(df)
-                except Exception as e:
-                    st.error(f"Error retrieving data from table '{table_name}': {e}")
+                conn = create_conn(st.session_state.db_name)
+                if conn:
+                    try:
+                        df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+                        st.dataframe(df)
+                    except Exception as e:
+                        st.error(f"Error retrieving data from table '{table_name}': {e}")
+                    conn.close()
 
             # LLM Interaction Section
             st.markdown(f"<h3 style=color:brown;'>{'Generate SQL Query using LLM'}</h3>", unsafe_allow_html=True)
             query_prompt = st.text_area("Enter your query prompt", "")
             if st.button("Generate SQL Query"):
-                db_name = f'{db_name}.db'
-                schema_info = get_table_schema(db_name, table_name)
+                schema_info = get_table_schema(st.session_state.db_name, table_name)
                 prompt = f"your only task is to just give only the proper clean sql query after understanding the input without giving unnecessary keywords, use the following schema data(having all existing column names) \n '{schema_info}' of the table named '{table_name}' to create proper sql queries"
                 palm_response = get_palm_response(query_prompt, prompt)
                 st.write("Generated SQL Query:")
                 st.code(palm_response)
-                try:
-                    result_df = pd.read_sql_query(palm_response, st.session_state.conn)
-                    st.write("Query Result:")
-                    st.dataframe(result_df)
-                    prompt2 = f'based on this query:\n "{query_prompt}" from the user, and this result "{result_df}" make a sentence to display the respective answer from this data'
-                    palm_response2 = get_palm_response(result_df.to_string(), prompt2)
-                    st.markdown(f'<span style="color:BlueViolet;">{palm_response2}</span>', unsafe_allow_html=True)
-                except Exception as e:
-                    st.error(f"Error executing generated query: {e}")
+                conn = create_conn(st.session_state.db_name)
+                if conn:
+                    try:
+                        result_df = pd.read_sql_query(palm_response, conn)
+                        st.write("Query Result:")
+                        st.dataframe(result_df)
+                        prompt2 = f'based on this query:\n "{query_prompt}" from the user, and this result "{result_df}" make a sentence to display the respective answer from this data'
+                        palm_response2 = get_palm_response(result_df.to_string(), prompt2)
+                        st.markdown(f'<span style="color:BlueViolet;">{palm_response2}</span>', unsafe_allow_html=True)
+                    except Exception as e:
+                        st.error(f"Error executing generated query: {e}")
+                    conn.close()
 
             # Direct SQL Query Section
             st.markdown(f"<h3 style=color:brown>{'Direct SQL Query'}</h3>", unsafe_allow_html=True)
             direct_query = st.text_area("Enter your SQL query", "")
             if st.button("Execute SQL Query"):
-                try:
-                    direct_df = pd.read_sql_query(direct_query, st.session_state.conn)
-                    st.write("Query Result:")
-                    st.dataframe(direct_df)
-                except Exception as e:
-                    st.error(f"Error executing query: {e}")
-
-        st.session_state.conn.close()
+                conn = create_conn(st.session_state.db_name)
+                if conn:
+                    try:
+                        direct_df = pd.read_sql_query(direct_query, conn)
+                        st.write("Query Result:")
+                        st.dataframe(direct_df)
+                    except Exception as e:
+                        st.error(f"Error executing query: {e}")
+                    conn.close()
 
 if __name__ == "__main__":
     main()
