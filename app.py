@@ -92,7 +92,7 @@ if "tables" not in st.session_state:
     st.session_state.tables = []
     
 # Streamlit UI
-st.markdown(f"<h2 style='color:indigo;'>{'SQLite Database Explorer and Data Entry'}</h2>",unsafe_allow_html = True)
+st.markdown(f"<h2 style='color:indigo; style='text-align: center;'>{'SQLite Database Explorer and Data Entry'}</h2>",unsafe_allow_html = True)
 # UI for Database Name
 db_name = st.text_input("Enter Database Name", value='database')
 connect_button = st.button("Create/Connect to Database")
