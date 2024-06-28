@@ -154,7 +154,7 @@ if st.session_state.conn:
         st.markdown(f"<h3 style=color:brown;'>{'Generate SQL Query using LLM'}</h3>", unsafe_allow_html=True)
         query_prompt = st.text_area("Enter your query prompt", "")
         if st.button("Generate SQL Query"):
-            db_name=f'{db_name}.db'
+            db_name = f'{db_name}.db'
             schema_info = get_table_schema(db_name, table_name)
             prompt = f"your only task is to just give only the proper clean sql query after understanding the input without giving unnecessary keywords, use the following schema data(having all existing column names) \n '{schema_info}' of the table named '{table_name}' to create proper sql queries"
             palm_response = get_palm_response(query_prompt, prompt)
@@ -180,5 +180,3 @@ if st.session_state.conn:
                 st.dataframe(direct_df)
             except Exception as e:
                 st.error(f"Error executing query: {e}")
-
-    st.session_state.conn.close()
