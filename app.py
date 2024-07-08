@@ -63,7 +63,7 @@ def create_employee(table, conn, name_val, pos_val, hire_val, deprt_val, sal_val
 def get_palm_response(text, prompt):
     global response
     try:
-        os.environ['GOOGLE_API_KEY'] = 'AIzaSyB5JjP_KNtiZAfB48zB3b4-qQa1XQqb70k'  # Replace with your API key
+        os.environ['GOOGLE_API_KEY'] = 'AIzaSyBbepUh8x3CqpkxNFnJ1IX0dFc0UNTwwbU'  # Replace with your API key
         genai.configure(api_key=os.environ['GOOGLE_API_KEY'])
 
         models = [m for m in genai.list_models() if "text-bison" in m.name]
